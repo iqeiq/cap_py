@@ -13,8 +13,8 @@ private:
 };
 
 
-Capturer* getInstance(std::string title) {
-    return new Capturer(title);
+Capturer* getInstance() {
+    return new Capturer();
 }
 
 boost::numpy::ndarray Capturer::getFrame() {
@@ -25,60 +25,68 @@ boost::numpy::ndarray Capturer::getFrame() {
         frame.data(),
         np::dtype::get_builtin<boost::uint8_t>(),
         bp::make_tuple(size.second, size.first, 4),
-        bp::make_tuple(4 * size.first, 4, 1),
+        bp::make_tuple(size.first * 4, 4, 1),
         bp::object());
 }
 
-Capturer::Capturer(std::string title): title(title) { init(); }
+Capturer::Capturer() {}
 Capturer::~Capturer() {}
 
-void Capturer::init() {
+bool Capturer::init(std::string title_) {
+    title = title_;
     HWND desktop = GetDesktopWindow();
     HWND child = NULL;
+    hWnd = NULL;
     while(true) {
         child = FindWindowEx(desktop, child, NULL, NULL);
         if(child == NULL) break;
         char str[512];
         GetWindowText(child, str, 512);
-        std::cout << "window: " << str << std::endl;
+        //std::cout << "window: " << str << std::endl;
         if(title == str) { hWnd = child; break; }
     }
-    if(hWnd == NULL) return;
+    if(hWnd == NULL) return false;
     std::cout << title << " found!" << std::endl;
 
     RECT rc;
     GetWindowRect(hWnd, &rc);
     size.first = rc.right - rc.left;
     size.second = rc.bottom - rc.top;
-    pos.first = rc.left;
-    pos.second = rc.top;
     frame.resize(size.first * size.second * 4);
 
     BITMAPINFO bmpInfo;
 
     //DIBの情報を設定する
-    bmpInfo.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
-    bmpInfo.bmiHeader.biWidth=size.first;
-    bmpInfo.bmiHeader.biHeight=size.second;
-    bmpInfo.bmiHeader.biPlanes=1;
-    bmpInfo.bmiHeader.biBitCount=32;
+    bmpInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmpInfo.bmiHeader.biWidth = size.first;
+    bmpInfo.bmiHeader.biHeight = size.second;
+    bmpInfo.bmiHeader.biPlanes = 1;
+    bmpInfo.bmiHeader.biBitCount = 32;
     bmpInfo.bmiHeader.biCompression=BI_RGB;
 
     //DIBSection作成
     HDC hdcScreen = GetDC(NULL);
-    hdc = CreateCompatibleDC(hdcScreen);
-    hdc2 = CreateCompatibleDC(hdcScreen);
-    hBitmap = CreateDIBSection(hdc, &bmpInfo, DIB_RGB_COLORS, (void**)&lpPixel, NULL, 0);
-    LPDWORD lpPixel2;
-    HBITMAP hBitmap2 = CreateDIBSection(hdc2, &bmpInfo, DIB_RGB_COLORS, (void**)&lpPixel2, NULL, 0);
+    hdc = CreateCompatibleDC(hdcScreen); // -> DeleteDC
+    HBITMAP hBitmap = CreateDIBSection(hdc, &bmpInfo, DIB_RGB_COLORS, (void**)&pixel, NULL, 0);
     SelectObject(hdc, hBitmap);
-    SelectObject(hdc2, hBitmap2);
+    ReleaseDC(NULL, hdcScreen);
+
+    return true;
 }
 
 void Capturer::updateFrame() {
-    PrintWindow(hWnd, hdc2, PW_CLIENTONLY);
-    StretchBlt(hdc, 0, size.second, size.first, -size.second, hdc2, 0, 0, size.first, size.second, SRCCOPY);
-    std::copy_n((boost::uint8_t*)lpPixel, frame.size(), frame.data());
+    PrintWindow(hWnd, hdc, PW_CLIENTONLY);
+    
+    // pixelは下側から始まる仕様
+    // ↓これだと上下反転する
+    // std::copy_n((boost::uint8_t*)lpPixel, frame.size(), frame.data());
+    for(auto i = 0; i < frame.size(); i++) {
+        int h = i / (size.first * 4);
+        //int w = (i - h * (size.first * 4)) / 4;
+        //int c = i % 4;
+        //frame[i] = *(pixel + (size.second-1-h)*size.first*4 + w*4 + c);
+        frame[i] = *(pixel + i + (size.second-1-2*h)*size.first*4);
+    }
 }
 
 
@@ -98,7 +106,8 @@ BOOST_PYTHON_MODULE(capy) {
     
     def("hello", hello);
     def("factory", getInstance, return_value_policy<manage_new_object>());
-    class_<Capturer>("Capturer", init<std::string>())
+    class_<Capturer>("Capturer", no_init)
+        .def("init", &Capturer::init)
         .def("getFrame", &Capturer::getFrame);
 
 }

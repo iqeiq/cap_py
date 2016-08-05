@@ -20,22 +20,20 @@ extern "C" FILE * __cdecl __iob_func(void) { return _iob; }
 
 class Capturer {
 public:
-    boost::numpy::ndarray getFrame();
-    explicit Capturer(std::string title);
+    Capturer();
     ~Capturer();
+
+    bool init(std::string title);
+    boost::numpy::ndarray getFrame();
     
 private:
     std::string title;
     std::vector<boost::uint8_t> frame;
     std::pair<int, int> size;
-    std::pair<int, int> pos;
     HWND hWnd;
     HDC hdc;
-    HDC hdc2;
-    HBITMAP hBitmap;
-    LPDWORD lpPixel;
+    boost::uint8_t* pixel;
 
-    void init();
     void updateFrame();
 };
 

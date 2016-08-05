@@ -5,7 +5,10 @@ import capy
 
 def main():
     window_name = capy.hello()
-    capturer = capy.factory("capy - Microsoft Visual Studio")
+    capturer = capy.factory()
+    if not capturer.init("capy - Microsoft Visual Studio"):
+        print("init error.")
+        return
     cv2.namedWindow(window_name)
     while True:
         img = capturer.getFrame()
