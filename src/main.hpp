@@ -23,7 +23,7 @@ public:
     Capturer();
     ~Capturer();
 
-    bool init(std::string title);
+    bool init(std::string title, boost::python::object logger);
     boost::numpy::ndarray getFrame();
     
 private:
@@ -33,6 +33,7 @@ private:
     HWND hWnd;
     HDC hdc;
     boost::uint8_t* pixel;
+    boost::python::object logger;
 
     void updateFrame();
 };

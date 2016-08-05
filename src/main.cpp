@@ -32,8 +32,9 @@ boost::numpy::ndarray Capturer::getFrame() {
 Capturer::Capturer() {}
 Capturer::~Capturer() {}
 
-bool Capturer::init(std::string title_) {
+bool Capturer::init(std::string title_, boost::python::object logger_) {
     title = title_;
+    logger = logger_;
     HWND desktop = GetDesktopWindow();
     HWND child = NULL;
     hWnd = NULL;
@@ -42,17 +43,18 @@ bool Capturer::init(std::string title_) {
         if(child == NULL) break;
         char str[512];
         GetWindowText(child, str, 512);
-        //std::cout << "window: " << str << std::endl;
         if(title == str) { hWnd = child; break; }
     }
     if(hWnd == NULL) return false;
-    std::cout << title << " found!" << std::endl;
+    logger.attr("info")("window \"%s\" found!", title);
 
     RECT rc;
     GetWindowRect(hWnd, &rc);
     size.first = rc.right - rc.left;
     size.second = rc.bottom - rc.top;
     frame.resize(size.first * size.second * 4);
+
+    logger.attr("info")("screen: (%d, %d)", size.first, size.second);
 
     BITMAPINFO bmpInfo;
 
@@ -87,6 +89,7 @@ void Capturer::updateFrame() {
         //frame[i] = *(pixel + (size.second-1-h)*size.first*4 + w*4 + c);
         frame[i] = *(pixel + i + (size.second-1-2*h)*size.first*4);
     }
+    logger.attr("info")("test");
 }
 
 
